@@ -12,10 +12,11 @@ import argparse
 import errno
 import itertools
 import os
+import shlex
 import shutil
 import subprocess
 import sys
-from typing import BinaryIO, cast, Iterable, Optional, Sequence
+from typing import BinaryIO, Iterable, Optional, Sequence
 
 
 def direct_write(lines: Sequence[bytes]) -> None:
@@ -46,11 +47,11 @@ def page(lines: Iterable[bytes], pager: Optional[str] = None) -> None:
     available, a warning will be printed.
     """
     if pager is None:
-        pager = cast(str, os.environ.get("PAGER", "less"))
+        cmd = shlex.split(os.environ.get("PAGER", "less"))
+    else:
+        cmd = shlex.split(pager)
 
-    cmd = [pager]
-
-    if pager.split(os.sep)[-1] == "less":
+    if cmd[0].split(os.sep)[-1] == "less":
         # -R: interpret colour escape codes
         # +F: don't exit if the output fits on one screen
         # +X: emit magic init/deinit codes to clear the screen
@@ -58,9 +59,7 @@ def page(lines: Iterable[bytes], pager: Optional[str] = None) -> None:
 
     # TODO: make output to the pager faster.
     try:
-        pager_proc = subprocess.Popen(
-            cmd, stdin=subprocess.PIPE, bufsize=0,
-        )
+        pager_proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, bufsize=0)
     except FileNotFoundError:
         print("No pager available :(")
         return
