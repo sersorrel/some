@@ -15,7 +15,7 @@ import os
 import shutil
 import subprocess
 import sys
-from typing import cast, Iterable, Optional, Sequence, BinaryIO
+from typing import BinaryIO, cast, Iterable, Optional, Sequence
 
 
 def direct_write(lines: Sequence[bytes]) -> None:
