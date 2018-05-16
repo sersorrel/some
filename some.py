@@ -8,6 +8,7 @@ it using whatever pager is configured.
 """
 
 
+import argparse
 import errno
 import itertools
 import os
@@ -100,14 +101,20 @@ def some(file: TextIO, reserved_lines: int = 3) -> None:
 
 
 def main() -> None:
-    # TODO: support paging of files.
-    if len(sys.argv) > 1:
-        print(
-            "some does not yet support paging files from the command line.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-    some(sys.stdin)
+    parser = argparse.ArgumentParser(
+        description="some -- more than less, but less than more.", allow_abbrev=False
+    )
+    parser.add_argument(
+        "file",
+        metavar="filename",
+        nargs="?",
+        default=sys.stdin,
+        type=argparse.FileType("r"),
+        help="optionally, a file to page",
+    )
+    args = parser.parse_args()
+    with args.file as f:
+        some(f)
 
 
 if __name__ == "__main__":
