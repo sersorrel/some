@@ -70,7 +70,6 @@ def page(lines: Iterable[str], pager: Optional[str] = None) -> None:
             if e.errno == errno.EPIPE:
                 # Pager exited.
                 break
-
             else:
                 raise
 
