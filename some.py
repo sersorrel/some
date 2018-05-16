@@ -15,28 +15,29 @@ import os
 import shutil
 import subprocess
 import sys
-from typing import cast, Iterable, Optional, Sequence, TextIO
+from typing import cast, Iterable, Optional, Sequence, BinaryIO
 
 
-def direct_write(lines: Sequence[str]) -> None:
+def direct_write(lines: Sequence[bytes]) -> None:
     """Print some lines of text.
 
     The lines are assumed to end with newlines; no newlines will be
     added, apart from a final newline at the end of the output if there
     isn't one already -- though this is intended exclusively as a
     workaround for bad input, and should not be relied upon.
+
+    NB: this function will not work properly if `sys.stdout.buffer` is
+    not available, e.g. in IDLE.
     """
     # If there are no lines, or the only line is an empty string,
     # there's nothing to print!
     if lines and lines[-1]:
-        if lines[-1][-1] == "\n":
-            end = ""
-        else:
-            end = "\n"
-        print("".join(lines), end=end)
+        sys.stdout.buffer.write(b"".join(lines))
+        if not lines[-1].endswith(b"\n"):
+            sys.stdout.buffer.write(b"\n")
 
 
-def page(lines: Iterable[str], pager: Optional[str] = None) -> None:
+def page(lines: Iterable[bytes], pager: Optional[str] = None) -> None:
     """Print some lines of text via a pager.
 
     If not specified, the pager to use will be automatically guessed
@@ -58,7 +59,7 @@ def page(lines: Iterable[str], pager: Optional[str] = None) -> None:
     # TODO: make output to the pager faster.
     try:
         pager_proc = subprocess.Popen(
-            cmd, stdin=subprocess.PIPE, bufsize=1, universal_newlines=True
+            cmd, stdin=subprocess.PIPE, bufsize=0,
         )
     except FileNotFoundError:
         print("No pager available :(")
@@ -77,7 +78,7 @@ def page(lines: Iterable[str], pager: Optional[str] = None) -> None:
     pager_proc.communicate()
 
 
-def some(file: TextIO, reserved_lines: int = 3) -> None:
+def some(file: BinaryIO, reserved_lines: int = 3) -> None:
     """Put the contents of a file into stdout, maybe via a pager.
 
     If less screen space is available than some thinks (e.g. output will
@@ -90,7 +91,7 @@ def some(file: TextIO, reserved_lines: int = 3) -> None:
     terminal_height = shutil.get_terminal_size().lines
     usable_height = max(terminal_height - reserved_lines, 0)
 
-    all_lines = iter(file.readline, "")
+    all_lines = iter(file.readline, b"")
 
     the_lines = list(itertools.islice(all_lines, terminal_height + 1))
 
@@ -108,8 +109,8 @@ def main() -> None:
         "file",
         metavar="filename",
         nargs="?",
-        default=sys.stdin,
-        type=argparse.FileType("r"),
+        default=sys.stdin.buffer,
+        type=argparse.FileType("rb"),
         help="optionally, a file to page",
     )
     args = parser.parse_args()
