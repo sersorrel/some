@@ -5,12 +5,20 @@
 some is a pager… sometimes. If the input is less than one screen long,
 some will print it directly to the terminal; otherwise, it will display
 it using whatever pager is configured.
+
+It should be noted that some doesn't actually know how your terminal
+will render text, and so its behaviour is inherently based on an
+approximation of how a small subset of text is usually rendered. In
+situations where double-width characters or fancy ligatures are used,
+for example, some will treat them as single-width when deciding whether
+to invoke a pager.
 """
 
 
 import argparse
 import errno
 import itertools
+import math
 import os
 import shlex
 import shutil
@@ -77,7 +85,7 @@ def page(lines: Iterable[bytes], pager: Optional[str] = None) -> None:
     pager_proc.communicate()
 
 
-def some(file: BinaryIO, reserved_lines: int = 3) -> None:
+def some(file: BinaryIO, reserved_lines: int = 3, check_wrap: bool = False) -> None:
     """Put the contents of a file into stdout, maybe via a pager.
 
     If less screen space is available than some thinks (e.g. output will
@@ -86,15 +94,31 @@ def some(file: BinaryIO, reserved_lines: int = 3) -> None:
     lines that will be printed without invoking a pager. By default,
     some will try to avoid filling the *entire* screen with unpaged
     output -- this can be disabled by passing `reserved_lines=0`.
+
+    some will usually only look at the number of lines in the string, so
+    if the terminal wraps lines that are wider than the available screen
+    space, a pager may not be invoked when it should be. If this
+    behaviour is not desired, the `check_wrap` argument can be set to
+    True.
     """
-    terminal_height = shutil.get_terminal_size().lines
+    terminal_width, terminal_height = shutil.get_terminal_size()
     usable_height = max(terminal_height - reserved_lines, 0)
 
     all_lines = iter(file.readline, b"")
 
     the_lines = list(itertools.islice(all_lines, terminal_height + 1))
 
-    if len(the_lines) > usable_height:
+    if len(the_lines) > usable_height or (
+        check_wrap
+        # TODO: len() is the wrong function to use here; we want to know
+        # how many characters will be printed, not how many characters
+        # are in the string. The following is a shoddy approximation,
+        # but it will do for now.
+        and sum(
+            max(1, math.ceil(len(line[:-1]) / terminal_width)) for line in the_lines
+        )
+        > usable_height
+    ):
         page(itertools.chain(the_lines, all_lines))
     else:
         direct_write(the_lines)
@@ -114,7 +138,7 @@ def main() -> None:
     )
     args = parser.parse_args()
     with args.file as f:
-        some(f)
+        some(f, check_wrap=True)
 
 
 if __name__ == "__main__":
