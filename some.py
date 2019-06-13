@@ -22,6 +22,7 @@ import math
 import os
 import shlex
 import shutil
+import signal
 import subprocess
 import sys
 from typing import BinaryIO, Iterable, Optional, Sequence
@@ -67,22 +68,25 @@ def page(lines: Iterable[bytes], pager: Optional[str] = None) -> None:
 
     # TODO: make output to the pager faster.
     try:
+        # less uses SIGINT to cancel prompts, so we must ignore it.
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
         pager_proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, bufsize=0)
     except FileNotFoundError:
         print("No pager available :(")
         return
-
-    for line in lines:
-        try:
-            pager_proc.stdin.write(line)
-        except IOError as e:
-            if e.errno == errno.EPIPE:
-                # Pager exited.
-                break
-            else:
-                raise
-
-    pager_proc.communicate()
+    else:
+        for line in lines:
+            try:
+                pager_proc.stdin.write(line)
+            except IOError as e:
+                if e.errno == errno.EPIPE:
+                    # Pager exited.
+                    break
+                else:
+                    raise
+    finally:
+        pager_proc.communicate()
+        signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 
 def some(file: BinaryIO, reserved_lines: int = 3, check_wrap: bool = False) -> None:
