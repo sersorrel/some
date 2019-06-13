@@ -16,7 +16,6 @@ to invoke a pager.
 
 
 import argparse
-import errno
 import itertools
 import math
 import os
@@ -78,12 +77,9 @@ def page(lines: Iterable[bytes], pager: Optional[str] = None) -> None:
         for line in lines:
             try:
                 pager_proc.stdin.write(line)
-            except IOError as e:
-                if e.errno == errno.EPIPE:
-                    # Pager exited.
-                    break
-                else:
-                    raise
+            except BrokenPipeError:
+                # Pager exited.
+                break
     finally:
         pager_proc.communicate()
         signal.signal(signal.SIGINT, signal.SIG_DFL)
