@@ -1,3 +1,6 @@
+please note: this project is no longer maintained. you should consider
+using [the rust version](https://github.com/sersorrel/some.rs) instead.
+
 # some
 
 More than less, but less than more.
